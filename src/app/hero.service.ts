@@ -3,7 +3,7 @@ import { Hero } from './hero';
 import { HEROES } from './mock-app';
 import { Observable, of } from 'rxjs';
 import { MessageService } from './message.service';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { catchError, map, tap } from 'rxjs/operators';
 
 @Injectable({
@@ -11,19 +11,32 @@ import { catchError, map, tap } from 'rxjs/operators';
 })
 export class HeroService {
   private heroesURL = 'api/heroes';
+  httpOptions = {
+    headers: new HttpHeaders({'Content-Type': 'application/json'})
+  };
   constructor(private _MessageService: MessageService,
               private _HttpClient: HttpClient) { }
+
+  updateHero(hero: Hero): Observable<any>{
+    return this._HttpClient.put(this.heroesURL, hero, this.httpOptions).pipe(tap( _ => this.log(`updated hero id=${hero.id}`)),
+    catchError(this.handleError<any>('updatd hero'))
+  );
+}
   getHeroes(): Observable<Hero[]> {
     // this._MessageService.add('Heroeservice: fetched heroes ');
     this.log('fetched heroes');
     return this._HttpClient.get<Hero[]>(this.heroesURL).pipe(
+      tap( _ => this.log('fetched Heroes')),
       catchError(this.handleError<Hero[]>('getHeroes', []))
     );
   }
-  getHero(id:number): Observable<Hero>{
-    const hero = HEROES.find(h => h.id === id)!;
-    this._MessageService.add(`HeroService: fetched hero id=${id}`);
-    return of(hero);
+  /** GET hero by id. Will 404 if id not found */
+  getHero(id: number): Observable<Hero> {
+    const url = `${this.heroesURL}/${id}`;
+    return this._HttpClient.get<Hero>(url).pipe(
+      tap( _ => this.log(`fetched hero id=${id}`)),
+      catchError(this.handleError<Hero>(`getHero id=${id}`))
+    );
   }
   private log(message: string){
     this._MessageService.add(`HeroService: ${message}`);
@@ -47,5 +60,21 @@ export class HeroService {
     // Let the app keep running by returning an empty result.
     return of(result as T);
   };
-}
+  }
+  addHero(hero: Hero): Observable<Hero>{
+    return this._HttpClient.post<Hero>(this.heroesURL, hero, this.httpOptions).pipe(tap(
+      (newHero: Hero) => this.log(`added hero w/ id=${newHero.id}`)
+    ),
+    catchError(this.handleError<Hero>('addHero')));
+
+  }
+
+  deleteHero(id:number): Observable<Hero>{
+    const url = `${this.heroesURL}/${id}`;
+    return this._HttpClient.delete<Hero>(url, this.httpOptions).pipe(
+      tap(_ => this.log(`deleted hero id=${id}`)),
+      catchError(this.handleError<Hero>('deleteHero'))
+    )
+
+  }
 }
